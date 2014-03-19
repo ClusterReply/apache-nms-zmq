@@ -1,18 +1,16 @@
 ﻿
-Microsoft Visual Studio Solution File, Format Version 11.00
-# Visual Studio 2010
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vs2010-zmq-net-4.0-test", "vs2010-zmq-net-4.0-test.csproj", "{2F31ED5C-44A2-464A-BD55-2B5B010654E8}"
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio 2013
+VisualStudioVersion = 12.0.30501.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vs2013-zmq-net-4.5.1-test", "vs2013-zmq-net-4.5.1-test.csproj", "{2F31ED5C-44A2-464A-BD55-2B5B010654E8}"
 	ProjectSection(ProjectDependencies) = postProject
 		{624AA430-2EEF-4251-8700-B71A6D770A3B} = {624AA430-2EEF-4251-8700-B71A6D770A3B}
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vs2010-zmq-net-4.0", "vs2010-zmq-net-4.0.csproj", "{624AA430-2EEF-4251-8700-B71A6D770A3B}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "vs2013-zmq-net-4.5.1", "vs2013-zmq-net-4.5.1.csproj", "{624AA430-2EEF-4251-8700-B71A6D770A3B}"
 EndProject
 Global
-	GlobalSection(SubversionScc) = preSolution
-		Svn-Managed = True
-		Manager = AnkhSVN - Subversion Support for Visual Studio
-	EndGlobalSection
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
 		Release|Any CPU = Release|Any CPU
@@ -29,5 +27,9 @@ Global
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(SubversionScc) = preSolution
+		Svn-Managed = True
+		Manager = AnkhSVN - Subversion Support for Visual Studio
 	EndGlobalSection
 EndGlobal

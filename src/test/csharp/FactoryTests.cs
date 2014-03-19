@@ -16,7 +16,7 @@
  */
 
 using System;
-using NUnit.Framework;
+using MbUnit.Framework;
 
 namespace Apache.NMS.ZMQ
 {
@@ -28,7 +28,7 @@ namespace Apache.NMS.ZMQ
 		{
 			IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
 			Assert.IsNotNull(factory, "Error creating connection factory.");
-			Assert.IsInstanceOf<ConnectionFactory>(factory, "Wrong factory type.");
+			Assert.IsInstanceOfType<ConnectionFactory>(factory, "Wrong factory type.");
 			Assert.AreEqual(factory.BrokerUri.Port, 5556, "Wrong port.");
 		}
 
@@ -37,7 +37,7 @@ namespace Apache.NMS.ZMQ
 		{
 			IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"), "MyClientId");
 			Assert.IsNotNull(factory, "Error creating connection factory.");
-			Assert.IsInstanceOf<ConnectionFactory>(factory, "Wrong factory type.");
+			Assert.IsInstanceOfType<ConnectionFactory>(factory, "Wrong factory type.");
 			Assert.AreEqual(factory.BrokerUri.Port, 5556, "Wrong port.");
 			ConnectionFactory zmqConnectionFactory = (ConnectionFactory) factory;
 			Assert.AreEqual(zmqConnectionFactory.ClientId, "MyClientId", "Wrong client Id.");

@@ -17,7 +17,7 @@
 
 using System;
 using System.Threading;
-using NUnit.Framework;
+using MbUnit.Framework;
 
 namespace Apache.NMS.ZMQ
 {
@@ -77,106 +77,110 @@ namespace Apache.NMS.ZMQ
 
 		[Test]
 		public void TestMultipleProducersConsumer(
-			[Values("queue://ZMQTestQueue", "topic://ZMQTestTopic", "temp-queue://ZMQTempQueue", "temp-topic://ZMQTempTopic")]
+            [Column("queue://ZMQTestQueue", "topic://ZMQTestTopic", "temp-queue://ZMQTempQueue", "temp-topic://ZMQTempTopic")]
 			string destination,
-			[Values(1, 3)]
+            [Column(1, 3)]
 			int numProducers,
-			[Values(1, 3)]
+            [Column(1, 3)]
 			int numConsumers)
 		{
-			IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
+            IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
 			Assert.IsNotNull(factory, "Error creating connection factory.");
 
 			using(IConnection connection = factory.CreateConnection())
 			{
 				Assert.IsNotNull(connection, "Problem creating connection class. Usually problem with libzmq and clrzmq ");
-				using(ISession session = connection.CreateSession())
-				{
-					Assert.IsNotNull(session, "Error creating Session.");
-					using(IDestination testDestination = session.GetDestination(destination))
-					{
-						Assert.IsNotNull(testDestination, "Error creating test destination: {0}", destination);
+                using (ISession session = connection.CreateSession())
+                {
+                    Assert.IsNotNull(session, "Error creating Session.");
+                    //using(IDestination testDestination = session.GetDestination(destination))
+                    //{
+                    IDestination testDestination = session.GetDestination(destination);
 
-						// Track the number of messages we should receive
-						this.totalMsgCountToReceive = numProducers * numConsumers;
+                    using (testDestination as IDisposable)
+                    {
+                        Assert.IsNotNull(testDestination, "Error creating test destination: {0}", destination);
 
-						ConsumerTracker[] consumerTrackers = null;
-						IMessageProducer[] producers = null;
+                        // Track the number of messages we should receive
+                        this.totalMsgCountToReceive = numProducers * numConsumers;
 
-						try
-						{
-							// Create the consumers
-							consumerTrackers = new ConsumerTracker[numConsumers];
-							for(int index = 0; index < numConsumers; index++)
-							{
-								ConsumerTracker tracker = new ConsumerTracker(session, testDestination);
-								tracker.Listener += (message) =>
-									{
-										Assert.IsInstanceOf<TextMessage>(message, "Wrong message type received.");
-										ITextMessage textMsg = (ITextMessage) message;
-										Assert.AreEqual(textMsg.Text, "Zero Message.");
-										tracker.msgCount++;
-									};
-								consumerTrackers[index] = tracker;
-							}
+                        ConsumerTracker[] consumerTrackers = null;
+                        IMessageProducer[] producers = null;
 
-							// Create the producers
-							producers = new IMessageProducer[numProducers];
-							for(int index = 0; index < numProducers; index++)
-							{
-								producers[index] = session.CreateProducer(testDestination);
-								Assert.IsNotNull(producers[index], "Error creating producer #{0} on {1}", index, destination);
-							}
+                        try
+                        {
+                            // Create the consumers
+                            consumerTrackers = new ConsumerTracker[numConsumers];
+                            for (int index = 0; index < numConsumers; index++)
+                            {
+                                ConsumerTracker tracker = new ConsumerTracker(session, testDestination);
+                                tracker.Listener += (message) =>
+                                    {
+                                        Assert.IsInstanceOfType<TextMessage>(message, "Wrong message type received.");
+                                        ITextMessage textMsg = (ITextMessage)message;
+                                        Assert.AreEqual(textMsg.Text, "Zero Message.");
+                                        tracker.msgCount++;
+                                    };
+                                consumerTrackers[index] = tracker;
+                            }
 
-							// Send the messages
-							for(int index = 0; index < numProducers; index++)
-							{
-								ITextMessage testMsg = session.CreateTextMessage("Zero Message.");
-								Assert.IsNotNull(testMsg, "Error creating test message for producer #{0}.", index);
-								producers[index].Send(testMsg);
-							}
+                            // Create the producers
+                            producers = new IMessageProducer[numProducers];
+                            for (int index = 0; index < numProducers; index++)
+                            {
+                                producers[index] = session.CreateProducer(testDestination);
+                                Assert.IsNotNull(producers[index], "Error creating producer #{0} on {1}", index, destination);
+                            }
 
-							// Wait for the message
-							DateTime startWaitTime = DateTime.Now;
-							TimeSpan maxWaitTime = TimeSpan.FromSeconds(5);
+                            // Send the messages
+                            for (int index = 0; index < numProducers; index++)
+                            {
+                                ITextMessage testMsg = session.CreateTextMessage("Zero Message.");
+                                Assert.IsNotNull(testMsg, "Error creating test message for producer #{0}.", index);
+                                producers[index].Send(testMsg);
+                            }
 
-							while(GetNumMsgsReceived(consumerTrackers) < this.totalMsgCountToReceive)
-							{
-								if((DateTime.Now - startWaitTime) > maxWaitTime)
-								{
-									Assert.Fail("Timeout waiting for message receive.");
-								}
+                            // Wait for the message
+                            DateTime startWaitTime = DateTime.Now;
+                            TimeSpan maxWaitTime = TimeSpan.FromSeconds(5);
 
-								Thread.Sleep(5);
-							}
+                            while (GetNumMsgsReceived(consumerTrackers) < this.totalMsgCountToReceive)
+                            {
+                                if ((DateTime.Now - startWaitTime) > maxWaitTime)
+                                {
+                                    Assert.Fail("Timeout waiting for message receive.");
+                                }
 
-							// Sleep for an extra 2 seconds to see if any extra messages get delivered
-							Thread.Sleep(2 * 1000);
-							Assert.AreEqual(this.totalMsgCountToReceive, GetNumMsgsReceived(consumerTrackers), "Received too many messages.");
-						}
-						finally
-						{
+                                Thread.Sleep(5);
+                            }
 
-							// Clean up the producers
-							if(null != producers)
-							{
-								foreach(IMessageProducer producer in producers)
-								{
-									producer.Dispose();
-								}
-							}
+                            // Sleep for an extra 2 seconds to see if any extra messages get delivered
+                            Thread.Sleep(2 * 1000);
+                            Assert.AreEqual(this.totalMsgCountToReceive, GetNumMsgsReceived(consumerTrackers), "Received too many messages.");
+                        }
+                        finally
+                        {
 
-							// Clean up the consumers
-							if(null != consumerTrackers)
-							{
-								foreach(ConsumerTracker tracker in consumerTrackers)
-								{
-									tracker.Dispose();
-								}
-							}
-						}
-					}
-				}
+                            // Clean up the producers
+                            if (null != producers)
+                            {
+                                foreach (IMessageProducer producer in producers)
+                                {
+                                    producer.Dispose();
+                                }
+                            }
+
+                            // Clean up the consumers
+                            if (null != consumerTrackers)
+                            {
+                                foreach (ConsumerTracker tracker in consumerTrackers)
+                                {
+                                    tracker.Dispose();
+                                }
+                            }
+                        }
+                    }
+                }
 			}
 		}
 

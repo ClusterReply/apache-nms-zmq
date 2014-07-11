@@ -160,7 +160,7 @@ namespace Apache.NMS.ZMQ
 				Assert.IsNotNull(connection, "Problem creating connection class. Usually problem with libzmq and clrzmq ");
                 using (ISession session = connection.CreateSession())
                 {
-                    Assert.IsNotNull(session, "Error creating Session.");
+                    Assert.IsNotNull(session, "Error creating Session.");   
                     //using(IDestination testDestination = session.GetDestination(destinationName))
                     //{
                     IDestination testDestination = session.GetDestination(destinationName);

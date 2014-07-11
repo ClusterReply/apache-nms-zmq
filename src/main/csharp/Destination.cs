@@ -196,7 +196,6 @@ namespace Apache.NMS.ZMQ
 				this.consumerEndpoint = connection.GetConsumer();
 				// Must subscribe first before connecting to the endpoint binding
 				this.consumerEndpoint.Subscribe(Destination.encoding.GetBytes(this.destinationName));
-                //this.consumerEndpoint.Bind(connection.GetProducerContextBinding()); // SERVE ???
                 this.consumerEndpoint.Connect(connection.GetConsumerBindingPath());
 			}
 		}

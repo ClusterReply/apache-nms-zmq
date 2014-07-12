@@ -55,10 +55,21 @@ namespace Apache.NMS.ZMQ
 		public ConnectionFactory(Uri rawBrokerUri, string clientID)
 		{
 			this.BrokerUri = rawBrokerUri;
-			if(this.BrokerUri.Port < 1)
-			{
-				throw new NMSConnectionException("Missing connection port number.");
-			}
+
+            switch (this.BrokerUri.Scheme.ToLower())
+            {
+                case "tcp":
+                case "pgm":
+                case "epgm":
+                    if (this.BrokerUri.Port < 1)
+                        throw new NMSConnectionException("Missing connection port number.");
+                    break;
+                case "inproc":
+                case "ipc":
+                    break;
+                default:
+                    break;
+            }
 
 			if(null == clientID)
 			{

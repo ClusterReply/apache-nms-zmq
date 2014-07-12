@@ -146,12 +146,12 @@ namespace Apache.NMS.ZMQ
 		[Test]
 		public void TestSendReceive(
 			// inproc, ipc, tcp, pgm, or epgm
-            [Column("zmq:tcp://localhost:5556", "zmq:inproc://localhost:5557")]
+            [Column("zmq:tcp://localhost:5556", "zmq:inproc://ZMQTest")]
             string connectionName,
             [Column("queue://ZMQTestQueue", "topic://ZMQTestTopic", "temp-queue://ZMQTempQueue", "temp-topic://ZMQTempTopic")]
             string destinationName)
 		{
-			IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri(connectionName));
+            IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri(connectionName));
 			Assert.IsNotNull(factory, "Error creating connection factory.");
 
 			this.receivedMsgCount = 0;
@@ -175,9 +175,11 @@ namespace Apache.NMS.ZMQ
                             try
                             {
                                 consumer.Listener += OnMessage;
+
                                 using (IMessageProducer producer = session.CreateProducer(testDestination))
                                 {
-                                    Assert.IsNotNull(consumer, "Error creating producer on {0}", destinationName);
+                                    Assert.IsNotNull(producer, "Error creating producer on {0}", destinationName);
+                                    
                                     ITextMessage testMsg = producer.CreateTextMessage("Zero Message.");
                                     Assert.IsNotNull(testMsg, "Error creating test message.");
 

@@ -78,13 +78,32 @@ namespace Apache.NMS.ZMQ
 			}
 		}
 
-		public Connection(Uri connectionUri)
-		{
-			InitContext();
-			this.brokerUri = connectionUri;
-			this.producerContextBinding = string.Format("{0}://*:{1}", this.brokerUri.Scheme, this.brokerUri.Port);
-			this.consumerContextBinding = string.Format("{0}://{1}:{2}", brokerUri.Scheme, brokerUri.Host, this.brokerUri.Port);
-		}
+        public Connection(Uri connectionUri)
+        {
+            InitContext();
+            this.brokerUri = connectionUri;
+
+            switch (this.brokerUri.Scheme.ToLower())
+            {
+                case "tcp":
+                    this.producerContextBinding = string.Format("{0}://*:{1}", this.brokerUri.Scheme, this.brokerUri.Port);
+                    this.consumerContextBinding = string.Format("{0}://{1}:{2}", brokerUri.Scheme, brokerUri.Host, this.brokerUri.Port);
+                    break;
+                case "inproc":
+                    this.producerContextBinding = string.Format("{0}://{1}", this.brokerUri.Scheme, this.brokerUri.Host);
+                    this.consumerContextBinding = this.producerContextBinding;
+                    break;
+                case "ipc":
+                    this.producerContextBinding = string.Format("{0}:///{1}", this.brokerUri.Scheme, this.brokerUri.AbsolutePath);
+                    this.consumerContextBinding = this.producerContextBinding;
+                    break;
+                case "pgm":
+                case "epgm":
+                    throw new NotImplementedException(string.Format("Scheme '{0}' is not supported.", this.brokerUri.Scheme));
+                default:
+                    throw new NotSupportedException(string.Format("Scheme '{0}' is not supported.", this.brokerUri.Scheme));
+            }
+        }
 
 		~Connection()
 		{

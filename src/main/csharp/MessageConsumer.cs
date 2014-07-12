@@ -72,7 +72,7 @@ namespace Apache.NMS.ZMQ
 					this.listener += value;
 					if(0 == this.listenerCount)
 					{
-						StartAsyncDelivery();
+                        StartAsyncDelivery();
 					}
 
 					this.listenerCount++;

@@ -185,6 +185,7 @@ namespace Apache.NMS.ZMQ
 		}
 
 		[Test]
+        [Ignore]
 		private void SingleProducerMultipleDestinations()
 		{
 			string[] destinations = new string[]

@@ -18,6 +18,7 @@
 using System;
 using System.Threading;
 using MbUnit.Framework;
+using Gallio.Common;
 
 namespace Apache.NMS.ZMQ
 {
@@ -26,63 +27,26 @@ namespace Apache.NMS.ZMQ
 	{
 		private int totalMsgCountToReceive = 0;
 
-		private class ConsumerTracker : IMessageConsumer
+		private class ConsumerTracker
 		{
-			private IMessageConsumer consumer;
+			public IMessageConsumer consumer;
 			public int msgCount = 0;
 
-			public ConsumerTracker(ISession session, IDestination testDestination)
+            public ConsumerTracker(IMessageConsumer consumer)
 			{
-				this.consumer = session.CreateConsumer(testDestination);
-				Assert.IsNotNull(this.consumer, "Error creating consumer on {0}", testDestination.ToString());
-			}
-
-			public void Close()
-			{
-				this.consumer.Close();
-			}
-
-			public ConsumerTransformerDelegate ConsumerTransformer
-			{
-				get { return this.consumer.ConsumerTransformer; }
-				set { this.consumer.ConsumerTransformer = value; }
-			}
-
-			public event MessageListener Listener
-			{
-				add { this.consumer.Listener += value; }
-				remove { this.consumer.Listener -= value; }
-			}
-
-			public IMessage Receive(TimeSpan timeout)
-			{
-				return this.consumer.Receive(timeout);
-			}
-
-			public IMessage Receive()
-			{
-				return this.consumer.Receive();
-			}
-
-			public IMessage ReceiveNoWait()
-			{
-				return this.consumer.ReceiveNoWait();
-			}
-
-			public void Dispose()
-			{
-				this.consumer.Dispose();
-			}
+                this.consumer = consumer;
+            }
 		}
 
-		[Test]
+        private object receiveLock = new object();
+        [Test]
 		public void TestMultipleProducersConsumer(
             [Column("queue://ZMQTestQueue", "topic://ZMQTestTopic", "temp-queue://ZMQTempQueue", "temp-topic://ZMQTempTopic")]
-			string destination,
+            string destination,
             [Column(1, 3)]
-			int numProducers,
+            int numProducers,
             [Column(1, 3)]
-			int numConsumers)
+            int numConsumers)
 		{
             IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
 			Assert.IsNotNull(factory, "Error creating connection factory.");
@@ -113,13 +77,18 @@ namespace Apache.NMS.ZMQ
                             consumerTrackers = new ConsumerTracker[numConsumers];
                             for (int index = 0; index < numConsumers; index++)
                             {
-                                ConsumerTracker tracker = new ConsumerTracker(session, testDestination);
-                                tracker.Listener += (message) =>
+                                ConsumerTracker tracker = new ConsumerTracker(session.CreateConsumer(testDestination));
+                                Assert.IsNotNull(tracker.consumer, "Error creating consumer on {0}", testDestination.ToString());
+
+                                tracker.consumer.Listener += (message) =>
                                     {
-                                        Assert.IsInstanceOfType<TextMessage>(message, "Wrong message type received.");
-                                        ITextMessage textMsg = (ITextMessage)message;
-                                        Assert.AreEqual(textMsg.Text, "Zero Message.");
-                                        tracker.msgCount++;
+                                        lock (receiveLock)
+                                        {
+                                            Assert.IsInstanceOfType<TextMessage>(message, "Wrong message type received.");
+                                            ITextMessage textMsg = (ITextMessage)message;
+                                            Assert.AreEqual(textMsg.Text, "Zero Message.");
+                                            tracker.msgCount++;
+                                        }
                                     };
                                 consumerTrackers[index] = tracker;
                             }
@@ -131,6 +100,9 @@ namespace Apache.NMS.ZMQ
                                 producers[index] = session.CreateProducer(testDestination);
                                 Assert.IsNotNull(producers[index], "Error creating producer #{0} on {1}", index, destination);
                             }
+
+                            // Sleep for 1 second to wait for initialization
+                            Thread.Sleep(1000);
 
                             // Send the messages
                             for (int index = 0; index < numProducers; index++)
@@ -175,7 +147,7 @@ namespace Apache.NMS.ZMQ
                             {
                                 foreach (ConsumerTracker tracker in consumerTrackers)
                                 {
-                                    tracker.Dispose();
+                                    tracker.consumer.Dispose();
                                 }
                             }
                         }

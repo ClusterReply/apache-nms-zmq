@@ -25,12 +25,14 @@ namespace Apache.NMS.ZMQ
 	/// <summary>
 	/// Use to test and verify ZMQ behavior
 	/// </summary>
-	public class BaseTest
+	public abstract class BaseTest
 	{
 		[FixtureSetUp]
 		public void TestFixtureSetup()
 		{
             //System.Diagnostics.Debugger.Launch();
+
+            Tracer.Trace = new TestTracer();
 
 			////////////////////////////
 			// Dependencies check

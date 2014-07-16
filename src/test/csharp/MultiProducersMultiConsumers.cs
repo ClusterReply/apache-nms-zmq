@@ -19,27 +19,74 @@ using System;
 using System.Threading;
 using MbUnit.Framework;
 using Gallio.Common;
+using System.Collections.Concurrent;
 
 namespace Apache.NMS.ZMQ
 {
 	[TestFixture]
 	public class ProducerConsumers : BaseTest
 	{
-		private int totalMsgCountToReceive = 0;
-
-		private class ConsumerTracker
-		{
-			public IMessageConsumer consumer;
-			public int msgCount = 0;
-
-            public ConsumerTracker(IMessageConsumer consumer)
-			{
-                this.consumer = consumer;
-            }
-		}
-
-        private object receiveLock = new object();
+        /*
         [Test]
+        public void TempTest()
+        {
+            System.Diagnostics.Debugger.Launch();
+
+            var factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
+
+            using (var connection = factory.CreateConnection())
+            {
+                using (var session = connection.CreateSession())
+                {
+                    var destination = session.GetDestination("queue://ZMQTestQueue");
+                    using(destination as IDisposable)
+                    {
+                        var consumers = new IMessageConsumer[3];
+
+                        try
+                        {
+                            using (var producer = session.CreateProducer(destination))
+                            {
+                                var queue = new BlockingCollection<IMessage>();
+
+                                for (int i = 0; i < 3; i++)
+                                {
+                                    int consumerId = i;
+
+                                    var consumer = session.CreateConsumer(destination);
+                                    consumer.Listener += (message) =>
+                                    {
+                                        Tracer.InfoFormat("Consumer {0} received a message.", consumerId);
+                                        queue.Add(message);
+                                    };
+
+                                    consumers[i] = consumer;
+                                }
+
+                                for (int i = 0; i < 10; i++)
+                                    producer.Send(session.CreateTextMessage(string.Format("Test Message #{0}", i)));
+
+                                for (int i = 0; i < 10; i++)
+                                {
+                                    IMessage message = null;
+
+                                    if (queue.TryTake(out message, TimeSpan.FromSeconds(60)))
+                                        Tracer.InfoFormat("Message received: {0}", (message as ITextMessage).Text);
+                                }
+                            }
+                        }
+                        finally
+                        {
+                            foreach (var consumer in consumers)
+                                consumer.Dispose();
+                        }
+                    }
+                }
+            }
+        }
+        */
+
+		[Test]
 		public void TestMultipleProducersConsumer(
             [Column("queue://ZMQTestQueue", "topic://ZMQTestTopic", "temp-queue://ZMQTempQueue", "temp-topic://ZMQTempTopic")]
             string destination,
@@ -49,7 +96,7 @@ namespace Apache.NMS.ZMQ
             int numConsumers)
 		{
             IConnectionFactory factory = NMSConnectionFactory.CreateConnectionFactory(new Uri("zmq:tcp://localhost:5556"));
-			Assert.IsNotNull(factory, "Error creating connection factory.");
+            Assert.IsNotNull(factory, "Error creating connection factory.");
 
 			using(IConnection connection = factory.CreateConnection())
 			{
@@ -66,31 +113,31 @@ namespace Apache.NMS.ZMQ
                         Assert.IsNotNull(testDestination, "Error creating test destination: {0}", destination);
 
                         // Track the number of messages we should receive
-                        this.totalMsgCountToReceive = numProducers * numConsumers;
+                        int totalMsgCountToReceive = numProducers * numConsumers;
 
-                        ConsumerTracker[] consumerTrackers = null;
+                        IMessageConsumer[] consumers = null;
                         IMessageProducer[] producers = null;
+
+                        var queue = new BlockingCollection<ITextMessage>();
 
                         try
                         {
                             // Create the consumers
-                            consumerTrackers = new ConsumerTracker[numConsumers];
+                            consumers = new IMessageConsumer[numConsumers];
                             for (int index = 0; index < numConsumers; index++)
                             {
-                                ConsumerTracker tracker = new ConsumerTracker(session.CreateConsumer(testDestination));
-                                Assert.IsNotNull(tracker.consumer, "Error creating consumer on {0}", testDestination.ToString());
+                                IMessageConsumer consumer = session.CreateConsumer(testDestination);
+                                Assert.IsNotNull(consumer, "Error creating consumer on {0}", testDestination.ToString());
 
-                                tracker.consumer.Listener += (message) =>
+                                consumer.Listener += (message) =>
                                     {
-                                        lock (receiveLock)
-                                        {
-                                            Assert.IsInstanceOfType<TextMessage>(message, "Wrong message type received.");
-                                            ITextMessage textMsg = (ITextMessage)message;
-                                            Assert.AreEqual(textMsg.Text, "Zero Message.");
-                                            tracker.msgCount++;
-                                        }
+                                        Assert.IsInstanceOfType<TextMessage>(message, "Wrong message type received.");
+                                        ITextMessage textMsg = (ITextMessage)message;
+                                        Assert.AreEqual(textMsg.Text, "Zero Message.");
+
+                                        queue.Add(textMsg);
                                     };
-                                consumerTrackers[index] = tracker;
+                                consumers[index] = consumer;
                             }
 
                             // Create the producers
@@ -112,23 +159,24 @@ namespace Apache.NMS.ZMQ
                                 producers[index].Send(testMsg);
                             }
 
-                            // Wait for the message
-                            DateTime startWaitTime = DateTime.Now;
                             TimeSpan maxWaitTime = TimeSpan.FromSeconds(5);
 
-                            while (GetNumMsgsReceived(consumerTrackers) < this.totalMsgCountToReceive)
-                            {
-                                if ((DateTime.Now - startWaitTime) > maxWaitTime)
-                                {
-                                    Assert.Fail("Timeout waiting for message receive.");
-                                }
+                            int numMsgReceived = 0;
 
-                                Thread.Sleep(5);
+                            while (numMsgReceived < totalMsgCountToReceive)
+                            {
+                                ITextMessage msg;
+
+                                // Wait for the message
+                                if (queue.TryTake(out msg, maxWaitTime))
+                                    numMsgReceived++;
+                                else
+                                    Assert.Fail("Timeout waiting for message receive.");
                             }
 
                             // Sleep for an extra 2 seconds to see if any extra messages get delivered
                             Thread.Sleep(2 * 1000);
-                            Assert.AreEqual(this.totalMsgCountToReceive, GetNumMsgsReceived(consumerTrackers), "Received too many messages.");
+                            Assert.AreEqual(totalMsgCountToReceive, numMsgReceived, "Received too many messages.");
                         }
                         finally
                         {
@@ -143,11 +191,11 @@ namespace Apache.NMS.ZMQ
                             }
 
                             // Clean up the consumers
-                            if (null != consumerTrackers)
+                            if (null != consumers)
                             {
-                                foreach (ConsumerTracker tracker in consumerTrackers)
+                                foreach (var consumer in consumers)
                                 {
-                                    tracker.consumer.Dispose();
+                                    consumer.Dispose();
                                 }
                             }
                         }
@@ -174,18 +222,6 @@ namespace Apache.NMS.ZMQ
 
 			// TODO: Create one producer, and then use it to send to multiple destinations.
 			Assert.Fail("Not implemented.");
-		}
-
-		private int GetNumMsgsReceived(ConsumerTracker[] consumerTrackers)
-		{
-			int numMsgs = 0;
-
-			foreach(ConsumerTracker tracker in consumerTrackers)
-			{
-				numMsgs += tracker.msgCount;
-			}
-
-			return numMsgs;
 		}
 	}
 }
